@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rock-Paper-Scissors Game</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>Rock-Paper-Scissors Game</h1>
+
+    <!-- Create or Join Room -->
+    <div id="setup">
+        <input type="text" id="roomId" placeholder="Enter room ID" />
+        <input type="number" id="rounds" placeholder="Enter rounds" min="1" />
+        <button id="createRoom">Create Room</button>
+        <button id="joinRoom">Join Room</button>
+    </div>
+
+    <!-- Game buttons and results -->
+    <div id="game" style="display: none;">
+        <h2 id="status">Waiting for another player...</h2>
+        <div class="buttons-container">
+            <button id="rock" disabled>Rock</button>
+            <button id="paper" disabled>Paper</button>
+            <button id="scissors" disabled>Scissors</button>
+        </div>
+        <div id="log">Make your move!</div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const setupDiv = document.getElementById('setup');
+        const gameDiv = document.getElementById('game');
+        const statusEl = document.getElementById('status');
+        const logEl = document.getElementById('log');
+
+        document.getElementById('createRoom').onclick = () => {
+            const roomId = document.getElementById('roomId').value;
+            const rounds = document.getElementById('rounds').value;
+            socket.emit('createRoom', { roomId, rounds });
+        };
+
+        document.getElementById('joinRoom').onclick = () => {
+            const roomId = document.getElementById('roomId').value;
+            socket.emit('joinRoom', roomId);
+        };
+
+        socket.on('roomCreated', ({ roomId }) => {
+            alert(`Room created! Share this ID with another player: ${roomId}`);
+            statusEl.textContent = `Room created! Waiting for another player...`;
+        });
+
+        socket.on('startGame', ({ message, rounds }) => {
+            setupDiv.style.display = 'none';
+            gameDiv.style.display = 'block';
+            statusEl.textContent = message;
+            enableButtons();
+        });
+
+        document.getElementById('rock').onclick = () => sendMove('rock');
+        document.getElementById('paper').onclick = () => sendMove('paper');
+        document.getElementById('scissors').onclick = () => sendMove('scissors');
+
+        function sendMove(move) {
+            const roomId = document.getElementById('roomId').value;
+            socket.emit('move', { roomId, move });
+            disableButtons();
+        }
+
+        function enableButtons() {
+            document.getElementById('rock').disabled = false;
+            document.getElementById('paper').disabled = false;
+            document.getElementById('scissors').disabled = false;
+        }
+
+        function disableButtons() {
+            document.getElementById('rock').disabled = true;
+            document.getElementById('paper').disabled = true;
+            document.getElementById('scissors').disabled = true;
+        }
+
+        socket.on('roundResult', (result) => {
+            logEl.textContent = result;
+            enableButtons();
+        });
+
+        socket.on('nextRound', ({ round }) => {
+            statusEl.textContent = `Round ${round}. Make your move!`;
+        });
+
+        socket.on('gameOver', ({ winner }) => {
+            if (winner === 'draw') {
+                logEl.textContent = 'Game over! It\'s a draw!';
+            } else {
+                logEl.textContent = `Game over! Player ${winner} wins the game!`;
+            }
+            disableButtons();
+        });
+
+        socket.on('waiting', (message) => {
+            statusEl.textContent = message;
+        });
+
+        socket.on('error', (message) => {
+            alert(message);
+        });
+    </script>
+</body>
+</html>
